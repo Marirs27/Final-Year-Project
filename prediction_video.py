@@ -12,29 +12,25 @@ from tqdm.notebook import tqdm
 from PIL import ImageFile                            
 
 BASE_MODEL_PATH = os.path.join(os.getcwd(),"model")
-PICKLE_DIR = os.path.join(os.getcwd(),"pickle_files")
+PICKLE_DIR = os.path.join(os.getcwd(),"pickle")
 JSON_DIR = os.path.join(os.getcwd(),"json_files")
 
 if not os.path.exists(JSON_DIR):
     os.makedirs(JSON_DIR)
 
-BEST_MODEL = "model\self_trained\distracted-23-1.00.hdf5"
+BEST_MODEL = "model/vgg16/distracted-132-0.92.hdf5"
 model = load_model(BEST_MODEL)
 
-with open(os.path.join(PICKLE_DIR,"labels_list.pkl"),"rb") as handle:
+with open(os.path.join(PICKLE_DIR,"labels_list_vgg16.pkl"),"rb") as handle:
     labels_id = pickle.load(handle)
 
 def path_to_tensor(img_path):
     # loads RGB image as PIL.Image.Image type
-    img = image.load_img(img_path, target_size=(128, 128))
-    # convert PIL.Image.Image type to 3D tensor with shape (224, 224, 3)
+    img = image.load_img(img_path, target_size=(64, 64))
+    # convert PIL.Image.Image type to 3D tensor with shape (64, 64, 3)
     x = image.img_to_array(img)
-    # convert 3D tensor to 4D tensor with shape (1, 224, 224, 3) and return 4D tensor
+    # convert 3D tensor to 4D tensor with shape (1, 64, 64, 3) and return 4D tensor
     return np.expand_dims(x, axis=0)
-
-def paths_to_tensor(img_paths):
-    list_of_tensors = [path_to_tensor(img_path) for img_path in tqdm(img_paths)]
-    return np.vstack(list_of_tensors)
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True 
 
@@ -76,7 +72,7 @@ def predict_result(image_tensor):
     return label
 
 INPUT_VIDEO_FILE = "input_video.mp4"
-OUTPUT_VIDEO_FILE = "output_video.mp4"
+OUTPUT_VIDEO_FILE = "vgg_output_video.mp4"
 
 vs = cv2.VideoCapture(INPUT_VIDEO_FILE)
 writer = None
@@ -120,9 +116,8 @@ while True:
 	# check if the video writer is None
 	if writer is None:
 		# initialize our video writer
-		fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-		writer = cv2.VideoWriter(OUTPUT_VIDEO_FILE, fourcc, 30,
-			(W, H), True)
+		fourcc = cv2.VideoWriter_fourcc(*'MPEG')
+		out = cv2.VideoWriter(OUTPUT_VIDEO_FILE,fourcc, 20.0, (640,480))
 	# write the output frame to disk
 	writer.write(output)
 	# show the output image
