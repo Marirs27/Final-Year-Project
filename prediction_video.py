@@ -6,22 +6,23 @@ import pickle
 import numpy as np
 import shutil
 import cv2
+from keras.applications.vgg16 import VGG16
 
 from keras.preprocessing import image                  
 from tqdm.notebook import tqdm
 from PIL import ImageFile                            
 
 BASE_MODEL_PATH = os.path.join(os.getcwd(),"model")
-PICKLE_DIR = os.path.join(os.getcwd(),"pickle")
+PICKLE_DIR = os.path.join(os.getcwd(),"pickle_files")
 JSON_DIR = os.path.join(os.getcwd(),"json_files")
 
 if not os.path.exists(JSON_DIR):
     os.makedirs(JSON_DIR)
 
-BEST_MODEL = "model/vgg16/distracted-132-0.92.hdf5"
+BEST_MODEL = "model/self_trained/distracted-25-0.99.hdf5"
 model = load_model(BEST_MODEL)
 
-with open(os.path.join(PICKLE_DIR,"labels_list_vgg16.pkl"),"rb") as handle:
+with open(os.path.join(PICKLE_DIR,"labels_list.pkl"),"rb") as handle:
     labels_id = pickle.load(handle)
 
 def path_to_tensor(img_path):
@@ -30,7 +31,7 @@ def path_to_tensor(img_path):
     # convert PIL.Image.Image type to 3D tensor with shape (64, 64, 3)
     x = image.img_to_array(img)
     # convert 3D tensor to 4D tensor with shape (1, 64, 64, 3) and return 4D tensor
-    return np.expand_dims(x, axis=0)
+    return np.vstack([np.expand_dims(x, axis=0)])
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True 
 
@@ -72,61 +73,42 @@ def predict_result(image_tensor):
     return label
 
 INPUT_VIDEO_FILE = "input_video.mp4"
-OUTPUT_VIDEO_FILE = "vgg_output_video.mp4"
+OUTPUT_VIDEO_FILE = "final_output_video-2.avi"
 
 vs = cv2.VideoCapture(INPUT_VIDEO_FILE)
 writer = None
 (W, H) = (None, None)
-# loop over frames from the video file stream
 while True:
-	# read the next frame from the file
 	(grabbed, frame) = vs.read()
-	# if the frame was not grabbed, then we have reached the end
-	# of the stream
 	if not grabbed:
 		break
-	# if the frame dimensions are empty, grab them
 	if W is None or H is None:
 		(H, W) = frame.shape[:2]
-	# clone the output frame, then convert it from BGR to RGB
-	# ordering, resize the frame to a fixed 224x224, and then
-	# perform mean subtraction
 	output = frame.copy()
 	frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 	frame = cv2.resize(frame, (128, 128))
-	# frame -= mean
 	frame = np.expand_dims(frame,axis=0).astype('float32')/255 - 0.5
-
-	# make predictions on the frame and then update the predictions
-	# queue
+#	frame = cv2.resize(frame, (64,64))
+#	frame = np.expand_dims(image.img_to_array(frame),axis=0).astype('float32')/255 - 0.5
+#	model_base = VGG16(include_top=False)
+#	test_vgg16 = model_base.predict(frame,verbose=1)
+#   label = predict_result(test_vgg16)
 	label = predict_result(frame)
-	# preds = model.predict(np.expand_dims(frame, axis=0))[0]
-	# Q.append(preds)
-	
-	# perform prediction averaging over the current history of
-	# previous predictions
-	# results = np.array(Q).mean(axis=0)
-	# i = np.argmax(results)
-	# label = lb.classes_[i]
+    
 
-		# draw the activity on the output frame
 	text = "activity: {}".format(label)
-	cv2.putText(output, text, (35, 50), cv2.FONT_HERSHEY_SIMPLEX,
-		1.25, (0, 255, 0), 5)
-	# check if the video writer is None
+	cv2.putText(output, text, (35, 50), cv2.FONT_HERSHEY_SIMPLEX,1.25, (0, 255, 0), 5)
+	
 	if writer is None:
-		# initialize our video writer
-		fourcc = cv2.VideoWriter_fourcc(*'MPEG')
-		out = cv2.VideoWriter(OUTPUT_VIDEO_FILE,fourcc, 20.0, (640,480))
-	# write the output frame to disk
+		fourcc = cv2.VideoWriter_fourcc(*'XVID')
+		writer = cv2.VideoWriter(OUTPUT_VIDEO_FILE,fourcc, 30, (W,H), True)
+
 	writer.write(output)
-	# show the output image
 	cv2.imshow("Output", output)
 	key = cv2.waitKey(1) & 0xFF
-	# if the `q` key was pressed, break from the loop
 	if key == ord("q"):
 		break
-# release the file pointers
+
 print("[INFO] cleaning up...")
 writer.release()
 vs.release()
